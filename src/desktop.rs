@@ -294,13 +294,21 @@ fn capture_thread(
         Direction::Capture
     };
 
-    let (_def_time, min_time) = audio_client
-        .get_device_period()
-        .map_err(|e| crate::Error::Wasapi(e.to_string()))?;
+    // get_device_period() is not supported on application loopback virtual
+    // devices (returns E_NOTIMPL), so we skip it and use 0 — the buffer
+    // duration is ignored by WASAPI in that mode anyway.
+    let buffer_duration_hns = if request.process_id.is_some() {
+        0
+    } else {
+        let (_def_time, min_time) = audio_client
+            .get_device_period()
+            .map_err(|e| crate::Error::Wasapi(e.to_string()))?;
+        min_time
+    };
 
     let mode = StreamMode::EventsShared {
         autoconvert: true,
-        buffer_duration_hns: min_time,
+        buffer_duration_hns,
     };
 
     audio_client

@@ -161,8 +161,8 @@ from the hardware format transparently.
 cargo build
 
 # Build the TypeScript bindings
-npm install
-npm run build
+bun install
+bun run build
 ```
 
 ## License
