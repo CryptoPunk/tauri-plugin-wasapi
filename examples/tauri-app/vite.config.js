@@ -19,6 +19,6 @@ export default defineConfig({
       protocol: 'ws',
       host,
       port: 1421
-    } : undefined,
-  },
+    } : undefined
+  }
 })

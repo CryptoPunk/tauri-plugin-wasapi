@@ -7,7 +7,12 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:msvc": "bun run tauri build -- --runner xwin --target x86_64-pc-windows-msvc",
+    "tauri:check": "cargo xwin check --manifest-path src-tauri/Cargo.toml --target x86_64-pc-windows-msvc",
+    "clean": "bun run tauri:clean && rm -rf dist",
+    "distclean": "bun run clean && rm -rf node_modules && rm -rf bun.lock && rm -rf src-tauri/Cargo.lock",
+    "tauri:clean": "cargo clean --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
