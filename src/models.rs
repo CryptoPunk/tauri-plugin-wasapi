@@ -22,6 +22,8 @@ pub struct ProcessInfo {
     pub pid: u32,
     /// Process name (executable basename).
     pub name: String,
+    /// Parent Process ID.
+    pub parent_pid: Option<u32>,
 }
 
 /// Request to start an audio capture session.

@@ -212,6 +212,7 @@ fn list_processes_impl() -> crate::Result<Vec<ProcessInfo>> {
         .map(|(pid, proc_info)| ProcessInfo {
             pid: pid.as_u32(),
             name: proc_info.name().to_string_lossy().to_string(),
+            parent_pid: proc_info.parent().map(|p| p.as_u32()),
         })
         .collect();
 

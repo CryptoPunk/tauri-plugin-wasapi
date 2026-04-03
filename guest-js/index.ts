@@ -16,6 +16,7 @@ export interface AudioDevice {
 export interface ProcessInfo {
   pid: number;
   name: string;
+  parentPid?: number;
 }
 
 /** Audio format metadata sent as the first stream event. */

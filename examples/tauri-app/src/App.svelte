@@ -19,6 +19,61 @@
   let chunkCount = $state(0);
   let totalFrames = $state(0);
   let formatInfo = $state(null);
+  let vuLevels = $state([0, 0]);
+
+  // For process tree
+  let processTree = $derived(buildTree(processes));
+
+  function buildTree(flat) {
+    const map = {};
+    flat.forEach((p) => (map[p.pid] = { ...p, children: [] }));
+    const roots = [];
+    flat.forEach((p) => {
+      const node = map[p.pid];
+      if (p.parentPid && map[p.parentPid]) {
+        map[p.parentPid].children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+
+    // Flatten for simple <select> with indentation
+    const result = [];
+    const traverse = (nodes, depth = 0) => {
+      // Sort children by name
+      nodes.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+      nodes.forEach((node) => {
+        result.push({
+          ...node,
+          displayName: `${'\u00A0'.repeat(depth * 3)}${node.name} (${node.pid})`,
+        });
+        traverse(node.children, depth + 1);
+      });
+    };
+    traverse(roots);
+    return result;
+  }
+
+  function calculateLevels(byteData, chCount) {
+    if (!byteData || byteData.length === 0) return;
+
+    // Convert number[] (bytes) to Float32Array
+    const uint8 = new Uint8Array(byteData);
+    const floats = new Float32Array(uint8.buffer);
+
+    const newPeaks = Array(chCount).fill(0);
+    for (let i = 0; i < floats.length; i++) {
+      const ch = i % chCount;
+      const val = Math.abs(floats[i]);
+      if (val > newPeaks[ch]) newPeaks[ch] = val;
+    }
+
+    // Decay current levels for smoothness
+    vuLevels = vuLevels.map((old, i) => {
+      const peak = newPeaks[i] || 0;
+      return Math.max(peak, old * 0.85); // Smoothing decay
+    });
+  }
 
   function log(msg) {
     const ts = new Date().toLocaleTimeString();
@@ -78,14 +133,17 @@
           case 'data':
             chunkCount++;
             totalFrames += event.data.frames;
+            calculateLevels(event.data.data, event.data.channels);
             break;
           case 'error':
             log(`Capture error: ${event.data.message}`);
             capturing = false;
+            vuLevels = [0, 0];
             break;
           case 'stopped':
             log('Capture stopped');
             capturing = false;
+            vuLevels = [0, 0];
             break;
         }
       });
@@ -134,12 +192,12 @@
       List Processes
     </button>
 
-    {#if processes.length > 0}
+    {#if processTree.length > 0}
       <select id="process-select" bind:value={selectedPid}>
         <option value="">None (device capture)</option>
-        {#each processes as proc}
+        {#each processTree as proc}
           <option value={proc.pid}>
-            {proc.name} (PID {proc.pid})
+            {proc.displayName}
           </option>
         {/each}
       </select>
@@ -175,6 +233,17 @@
           ▶ Start Capture
         </button>
       {:else}
+        <div class="vu-container">
+          <div class="vu-meta">VU METER</div>
+          {#each Array(channels) as _, i}
+            <div class="vu-track">
+              <div
+                class="vu-bar"
+                style="width: {Math.min(100, vuLevels[i] * 120)}%"
+              ></div>
+            </div>
+          {/each}
+        </div>
         <button id="btn-stop-capture" class="stop" onclick={handleStopCapture}>
           ■ Stop Capture
         </button>
@@ -243,14 +312,27 @@
 
   select {
     width: 100%;
-    padding: 0.5em;
+    padding: 0.6em;
     margin-top: 0.5em;
     border-radius: 6px;
-    border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
-    background: var(--input-bg, rgba(0, 0, 0, 0.2));
-    color: inherit;
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.2));
+    background: #1a1a1a; /* Hard background to prevent OS bleed-through */
+    color: #ffffff;
     font-family: inherit;
     font-size: 0.9em;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  select:focus {
+    border-color: #396cd8;
+    outline: none;
+  }
+
+  option {
+    background: #1a1a1a;
+    color: #ffffff;
+    padding: 4px;
   }
 
   .settings-grid {
@@ -297,5 +379,39 @@
   .log-entry {
     padding: 0.1rem 0;
     opacity: 0.85;
+  }
+
+  /* VU Meter Styles */
+  .vu-container {
+    margin-bottom: 1.5rem;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 0.75rem;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .vu-meta {
+    font-size: 0.65rem;
+    text-align: left;
+    margin-bottom: 0.4rem;
+    opacity: 0.5;
+    letter-spacing: 0.1em;
+  }
+
+  .vu-track {
+    height: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 3px;
+    margin-bottom: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .vu-bar {
+    height: 100%;
+    background: linear-gradient(to right, #2ecc71 0%, #f1c40f 70%, #e74c3c 100%);
+    width: 0%;
+    transition: width 0.05s linear;
+    box-shadow: 0 0 10px rgba(46, 204, 113, 0.3);
   }
 </style>
