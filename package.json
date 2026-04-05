@@ -24,14 +24,26 @@
     "pretest": "bun run build",
     "clean": "bun run tauri:clean && rm -rf dist-js",
     "distclean": "bun run clean && rm -rf node_modules && rm -rf bun.lock && rm -rf Cargo.lock",
-    "tauri:clean": "cargo clean"
+    "tauri:clean": "cargo clean",
+    "docs:rust": "cargo doc --no-deps --target-dir docs/public/api/rust",
+    "docs:ts": "typedoc --out docs/public/api/ts",
+    "docs:inject": "bun run scripts/inject-api-nav.mjs docs/public/api/ts docs/public/api/rust/doc",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "bun run docs:rust && bun run docs:ts && bun run docs:inject && vitepress build docs",
+    "docs:preview": "vitepress preview docs",
+    "docs:clean": "rm -rf docs/public/api/rust && rm -rf docs/public/api/ts"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.0.0"
+    "@tauri-apps/api": "^2.10.1"
   },
   "devDependencies": {
-    "vite": "^6.0.0",
-    "vite-plugin-dts": "^4.0.0",
-    "typescript": "^5.3.3"
+    "mermaid": "^11.14.0",
+    "typedoc": "v0.28.18",
+    "typedoc-theme-oxide": "^0.2.5",
+    "typescript": "^5.9.3",
+    "vite": "v8.0.3",
+    "vite-plugin-dts": "^4.5.4",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-mermaid": "^2.0.17"
   }
 }

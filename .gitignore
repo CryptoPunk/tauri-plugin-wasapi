@@ -15,3 +15,10 @@ node_modules/
 
 dist-js
 dist
+
+# Documentation
+/target/doc
+/doc/api
+/docs/public/api
+/docs/.vitepress/dist
+/docs/.vitepress/cache

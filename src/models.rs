@@ -1,98 +1,108 @@
 use serde::{Deserialize, Serialize};
 
-/// Audio device info returned to the frontend.
+/// Audio device information returned to the frontend.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioDevice {
-    /// WASAPI device ID.
+    /// The unique WASAPI device identifier.
     pub id: String,
-    /// Human-readable device name.
+    /// The human-readable name of the device (e.g., "Microphone (Realtek Audio)").
     pub name: String,
-    /// "capture" or "render".
+    /// The device direction: "capture" (input) or "render" (output).
     pub direction: String,
-    /// "active", "disabled", "notpresent", or "unplugged".
+    /// The current operational state: "active", "disabled", "notpresent", or "unplugged".
     pub state: String,
 }
 
-/// OS process info returned by list_processes.
+/// OS process information returned by `list_processes`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProcessInfo {
-    /// Process ID.
+    /// The OS-assigned Process ID.
     pub pid: u32,
-    /// Process name (executable basename).
+    /// The executable name (e.g., "chrome.exe").
     pub name: String,
-    /// Parent Process ID.
+    /// The Parent Process ID, if available.
     pub parent_pid: Option<u32>,
 }
 
-/// Request to start an audio capture session.
+/// Configuration for starting a new audio capture session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StartCaptureRequest {
-    /// Unique session identifier chosen by the caller.
+    /// A unique session identifier chosen by the caller. Used to stop the session.
     pub session_id: String,
-    /// WASAPI device ID. None = system default.
+    /// The WASAPI device ID to capture from. If `None`, uses the system default.
     pub device_id: Option<String>,
-    /// When true, capture output audio via loopback instead of mic input.
+    /// When true, captures playback (output) audio via loopback instead of input.
     #[serde(default)]
     pub loopback: bool,
-    /// For application-specific capture (Win10 20348+). Overrides device_id.
+    /// For application-specific capture (Windows 10 20348+). Overrides `device_id`.
     pub process_id: Option<u32>,
-    /// Sample rate in Hz. Default: 48000.
+    /// The desired sample rate in Hz. Default: 48000.
     pub sample_rate: Option<u32>,
-    /// Channel count. Default: 2 (stereo).
+    /// The desired number of audio channels. Default: 2 (stereo).
     pub channels: Option<u16>,
 }
 
-/// Request to stop a capture session.
+/// Request to stop an existing capture session.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StopCaptureRequest {
-    /// Session to stop.
+    /// The unique identifier for the session to stop.
     pub session_id: String,
 }
 
-/// Audio format metadata sent as the first channel message.
+/// Audio format metadata sent as the first message on a capture stream.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioFormatInfo {
+    /// The session identifier.
     pub session_id: String,
+    /// The negotiated sample rate in Hz.
     pub sample_rate: u32,
+    /// The negotiated number of channels.
     pub channels: u16,
+    /// The bit depth per sample. Always 32 for this plugin.
     pub bits_per_sample: u16,
-    /// Always "f32" for this plugin.
+    /// The sample representation. Always "f32" (32-bit float).
     pub sample_format: String,
 }
 
-/// A chunk of captured PCM audio data.
+/// A single chunk of captured PCM audio data.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AudioChunk {
+    /// The session identifier.
     pub session_id: String,
-    /// Raw PCM bytes (f32le, interleaved channels).
+    /// The raw PCM bytes. These are 32-bit floats ("f32le") with interleaved channels.
     pub data: Vec<u8>,
+    /// The sample rate of this data.
     pub sample_rate: u32,
+    /// The number of channels in the interleaved data.
     pub channels: u16,
-    /// Number of audio frames in this chunk.
+    /// The number of audio frames contained in this chunk.
     pub frames: u32,
 }
 
-/// Tagged stream event sent over the Tauri Channel IPC.
+/// Tagged stream events sent over the Tauri Channel IPC.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "event", content = "data", rename_all = "camelCase")]
 pub enum StreamEvent {
-    /// Initial format metadata.
+    /// The first event sent, describing the negotiated audio format.
     Format(AudioFormatInfo),
-    /// Audio sample data.
+    /// A regular event containing a chunk of captured audio data.
     Data(AudioChunk),
-    /// Non-fatal or fatal error during capture.
+    /// Sent if a non-fatal or fatal error occurs during capture.
     Error {
+        /// The session identifier.
         session_id: String,
+        /// A human-readable error message.
         message: String,
     },
-    /// Capture has stopped cleanly.
+    /// Sent when the capture session has stopped successfully.
     Stopped {
+        /// The session identifier.
         session_id: String,
     },
 }

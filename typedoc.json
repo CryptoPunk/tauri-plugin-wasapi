@@ -1,0 +1,25 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "guest-js/index.ts"
+  ],
+  "out": "doc/api",
+  "plugin": [],
+  "excludeExternals": true,
+  "includeVersion": true,
+  "name": "WASAPI Audio Capture Plugin for Tauri 2.0",
+  "highlightLanguages": [
+    "toml",
+    "rust",
+    "bash",
+    "console",
+    "css",
+    "html",
+    "javascript",
+    "json",
+    "jsonc",
+    "json5",
+    "tsx",
+    "typescript"
+  ]
+}

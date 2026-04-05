@@ -14,6 +14,7 @@ in real-time via Tauri's Channel IPC.
 - **Device enumeration** — list all audio devices and their state
 - **Process listing** — list running processes for application-specific capture
 - **Real-time streaming** — PCM audio data streamed via Tauri Channel IPC
+- **VU Meter visualization** — includes logic for calculating and displaying real-time levels
 
 ## Platform Support
 
@@ -24,6 +25,10 @@ in real-time via Tauri's Channel IPC.
 | Linux    | ❌        |
 | Android  | ❌        |
 | iOS      | ❌        |
+
+## Project Structure
+
+For a detailed breakdown of the file structure, see [FILES.md](FILES.md).
 
 ## Installation
 
@@ -157,13 +162,44 @@ from the hardware format transparently.
 ## Development
 
 ```bash
+# Install dependencies
+bun install
+
 # Build the Rust plugin
 cargo build
 
 # Build the TypeScript bindings
-bun install
 bun run build
+
+# Run the example application
+cd examples/tauri-app
+bun install
+bun run tauri dev
 ```
+
+## Documentation
+
+This project uses standard documentation tools for both the Rust and TypeScript components:
+
+### View API Reference
+
+To generate and view the complete API documentation for both Rust and TypeScript:
+
+```bash
+# Generate all documentation
+npm run docs
+
+# Rustdoc only
+npm run docs:rust
+
+# TypeDoc only
+npm run docs:ts
+```
+
+- **Rustdoc** is generated in `target/doc/tauri_plugin_wasapi/index.html`.
+- **TypeDoc** is generated in `doc/api/index.html`.
+
+Additional architecture and troubleshooting guides are available in the [doc/](doc/) directory.
 
 ## License
 

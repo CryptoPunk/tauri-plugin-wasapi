@@ -8,21 +8,31 @@ use tauri::{plugin::PluginApi, AppHandle, Runtime};
 
 use crate::models::*;
 
-/// Tracks a running capture session.
+/// Tracks a running audio capture session.
+///
+/// Each session runs on its own background thread and can be stopped
+/// independently using the `stop_flag`.
 struct CaptureSession {
-    /// Set to true to signal the capture thread to stop.
+    /// A shared flag used to signal the capture thread that it should
+    /// terminate gracefully.
     stop_flag: Arc<AtomicBool>,
-    /// Handle to the capture thread.
+    /// The join handle for the background capture thread.
     handle: Option<JoinHandle<()>>,
 }
 
-/// Plugin state managed by Tauri.
+/// The WASAPI plugin state, managed by Tauri.
+///
+/// This struct maintains a registry of active [`CaptureSession`] objects,
+/// allowing multiple simultaneous capture sessions (e.g., from different
+/// devices or processes).
 pub struct Wasapi<R: Runtime> {
     #[allow(dead_code)]
     app: AppHandle<R>,
+    /// A thread-safe map of session IDs to their respective capture sessions.
     sessions: Arc<Mutex<HashMap<String, CaptureSession>>>,
 }
 
+/// Initializes the desktop-specific WASAPI state.
 pub fn init<R: Runtime, C: DeserializeOwned>(
     app: &AppHandle<R>,
     _api: PluginApi<R, C>,
@@ -34,7 +44,9 @@ pub fn init<R: Runtime, C: DeserializeOwned>(
 }
 
 impl<R: Runtime> Wasapi<R> {
-    /// Enumerate all audio capture and render devices.
+    /// Enumerates all logical audio endpoints (capture and render) on the system.
+    ///
+    /// This uses the `IMMDeviceEnumerator` to find all active or unplugged devices.
     pub fn list_devices(&self) -> crate::Result<Vec<AudioDevice>> {
         #[cfg(windows)]
         {
@@ -46,7 +58,9 @@ impl<R: Runtime> Wasapi<R> {
         }
     }
 
-    /// List OS processes (for application-specific capture).
+    /// Lists all running OS processes to facilitate application-specific capture.
+    ///
+    /// This is useful for identifying a `process_id` to pass to [`start_capture`].
     pub fn list_processes(&self) -> crate::Result<Vec<ProcessInfo>> {
         #[cfg(windows)]
         {
@@ -58,8 +72,15 @@ impl<R: Runtime> Wasapi<R> {
         }
     }
 
-    /// Start a capture session on a dedicated thread, streaming audio
-    /// data to the frontend via the provided Channel.
+    /// Starts a new audio capture session.
+    ///
+    /// This method spawns a dedicated background thread that interacts with WASAPI.
+    /// Audio data is streamed as `f32` PCM chunks over the provided Tauri `Channel`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `sessionId` is already in use or if the capture
+    /// thread fails to start.
     pub fn start_capture(
         &self,
         request: StartCaptureRequest,
@@ -122,7 +143,15 @@ impl<R: Runtime> Wasapi<R> {
         Ok(())
     }
 
-    /// Signal a capture session to stop and wait for its thread to finish.
+    /// Signals a running capture session to stop and cleans up its resources.
+    ///
+    /// This method sets the session's stop flag and waits for the background
+    /// thread to join.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::SessionNotFound`] if the provided `session_id` does
+    /// not refer to an active session.
     pub fn stop_capture(&self, session_id: &str) -> crate::Result<()> {
         let mut sessions = self
             .sessions
@@ -152,6 +181,7 @@ impl<R: Runtime> Wasapi<R> {
 // Windows-only implementations
 // ---------------------------------------------------------------------------
 
+/// Windows-only implementation for device enumeration.
 #[cfg(windows)]
 fn list_devices_impl() -> crate::Result<Vec<AudioDevice>> {
     use wasapi::*;
@@ -198,6 +228,7 @@ fn list_devices_impl() -> crate::Result<Vec<AudioDevice>> {
     Ok(devices)
 }
 
+/// Windows-only implementation for listing all running processes.
 #[cfg(windows)]
 fn list_processes_impl() -> crate::Result<Vec<ProcessInfo>> {
     use sysinfo::{ProcessRefreshKind, RefreshKind, System};
@@ -223,8 +254,12 @@ fn list_processes_impl() -> crate::Result<Vec<ProcessInfo>> {
 
 /// The main capture loop running on a dedicated thread.
 ///
-/// Initialises COM, opens the requested WASAPI device, sends format info,
-/// then streams PCM chunks over the channel until stopped.
+/// This function:
+/// 1. Initialises the Windows Runtime (COM) Multi-Threaded Apartment (MTA).
+/// 2. Configures the [`AudioClient`] for either device or application-specific capture.
+/// 3. Negotiates a 32-bit float PCM format.
+/// 4. Starts the WASAPI stream.
+/// 5. Enters a loop waiting for audio buffer events and streaming chunks to the frontend.
 #[cfg(windows)]
 fn capture_thread(
     request: StartCaptureRequest,
